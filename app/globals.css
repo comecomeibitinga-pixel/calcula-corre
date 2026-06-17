@@ -1,0 +1,35 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-background text-slate-100 antialiased selection:bg-accent-primary selection:text-background;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* Custom styling to simulate a native app environment */
+html, body {
+  overscroll-behavior-y: contain; /* Prevents pull-to-refresh on mobile browsers */
+  height: 100%;
+  width: 100%;
+  overflow-x: hidden;
+}
+
+/* Hide scrollbars for a clean app feel */
+::-webkit-scrollbar {
+  width: 0px;
+  background: transparent;
+}
+
+/* Input number arrows removal */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type=number] {
+  -moz-appearance: textfield;
+}
