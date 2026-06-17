@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { db, Profile } from "@/lib/db";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
-import { ArrowLeft, Settings, Save, Sliders, Database, AlertTriangle, RefreshCw, LogIn, LogOut } from "lucide-react";
+import { ArrowLeft, Settings, Save, Sliders, Database, AlertTriangle, RefreshCw, LogIn, LogOut, Download, Heart, Copy, Check } from "lucide-react";
 
 export default function ConfigPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -19,6 +19,15 @@ export default function ConfigPage() {
   const [loading, setLoading] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [sucesso, setSucesso] = useState(false);
+  const [copiado, setCopiado] = useState(false);
+
+  const pixKey = process.env.NEXT_PUBLIC_DEVELOPER_PIX_KEY || "seu-pix@email.com";
+
+  const handleCopyPix = () => {
+    navigator.clipboard.writeText(pixKey);
+    setCopiado(true);
+    setTimeout(() => setCopiado(false), 2000);
+  };
 
   const loadProfile = async () => {
     setLoading(true);
@@ -45,6 +54,69 @@ export default function ConfigPage() {
   useEffect(() => {
     loadProfile();
   }, []);
+
+  const handleExportGanhosCSV = async () => {
+    try {
+      const list = await db.getGanhos();
+      if (list.length === 0) {
+        alert("Não há ganhos cadastrados para exportar.");
+        return;
+      }
+      const headers = ["ID", "Data", "Categoria", "Valor", "Descricao"];
+      const rows = list.map(g => [
+        g.id,
+        g.data,
+        g.categoria,
+        g.valor.toFixed(2),
+        `"${(g.descricao || "").replace(/"/g, '""')}"`
+      ]);
+      const csvContent = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+      const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `ganhos_calculacorre_${new Date().toISOString().split("T")[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err) {
+      console.error("Erro ao exportar ganhos:", err);
+      alert("Erro ao exportar dados.");
+    }
+  };
+
+  const handleExportDespesasCSV = async () => {
+    try {
+      const list = await db.getDespesas();
+      if (list.length === 0) {
+        alert("Não há despesas cadastradas para exportar.");
+        return;
+      }
+      const headers = ["ID", "Data", "Tipo", "Categoria Manutencao", "Valor", "KM Registro", "Litros", "Descricao"];
+      const rows = list.map(d => [
+        d.id,
+        d.data,
+        d.tipo,
+        d.categoria_manutencao || "",
+        d.valor.toFixed(2),
+        d.km_registro || "",
+        d.litros || "",
+        `"${(d.descricao || "").replace(/"/g, '""')}"`
+      ]);
+      const csvContent = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+      const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `despesas_calculacorre_${new Date().toISOString().split("T")[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err) {
+      console.error("Erro ao exportar despesas:", err);
+      alert("Erro ao exportar dados.");
+    }
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -265,6 +337,78 @@ export default function ConfigPage() {
             </div>
           </div>
         )}
+      </section>
+
+      {/* Portabilidade de Dados */}
+      <section className="bg-card border border-border rounded-2xl p-4 shadow-md space-y-3">
+        <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+          <Download className="w-4 h-4 text-accent-success" /> Exportar Dados (CSV)
+        </h3>
+        <p className="text-[10px] text-slate-400 leading-relaxed">
+          Baixe o histórico completo em arquivos compatíveis com Excel e Planilhas Google.
+        </p>
+
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={handleExportGanhosCSV}
+            className="py-2.5 bg-slate-900 hover:bg-slate-800 border border-border hover:border-slate-700 text-slate-300 hover:text-white text-xs font-bold rounded-xl active:scale-95 transition-all flex items-center justify-center gap-1.5"
+          >
+            <Download className="w-3.5 h-3.5 text-accent-success" />
+            Ganhos.csv
+          </button>
+          <button
+            type="button"
+            onClick={handleExportDespesasCSV}
+            className="py-2.5 bg-slate-900 hover:bg-slate-800 border border-border hover:border-slate-700 text-slate-300 hover:text-white text-xs font-bold rounded-xl active:scale-95 transition-all flex items-center justify-center gap-1.5"
+          >
+            <Download className="w-3.5 h-3.5 text-accent-danger" />
+            Despesas.csv
+          </button>
+        </div>
+      </section>
+
+      {/* Apoie o CalculaCorre */}
+      <section className="bg-card border border-border rounded-2xl p-4 shadow-md space-y-3 relative overflow-hidden">
+        {/* Subtle decorative glow */}
+        <div className="absolute -right-10 -top-10 w-24 h-24 bg-accent-primary/10 rounded-full blur-xl pointer-events-none" />
+        
+        <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+          <Heart className="w-4 h-4 text-rose-500 fill-rose-500/10 animate-pulse" /> Apoie o Projeto
+        </h3>
+        <p className="text-[10px] text-slate-400 leading-relaxed">
+          Gostou do CalculaCorre? Faça uma doação voluntária de qualquer valor via Pix para apoiar novas atualizações e manter o servidor no ar!
+        </p>
+
+        <div className="bg-slate-900 border border-border/80 rounded-xl p-2.5 flex items-center justify-between gap-2">
+          <div className="overflow-hidden">
+            <span className="text-[8px] text-slate-500 uppercase font-bold block">Chave Pix</span>
+            <span className="text-xs text-slate-200 font-mono block truncate select-all">
+              {pixKey}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={handleCopyPix}
+            className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all active:scale-95 flex items-center gap-1 shrink-0 ${
+              copiado 
+                ? "bg-accent-success/20 text-accent-success border border-accent-success/30" 
+                : "bg-accent-primary hover:bg-yellow-400 text-slate-950"
+            }`}
+          >
+            {copiado ? (
+              <>
+                <Check className="w-3.5 h-3.5" />
+                Copiado!
+              </>
+            ) : (
+              <>
+                <Copy className="w-3.5 h-3.5" />
+                Copiar
+              </>
+            )}
+          </button>
+        </div>
       </section>
 
       {/* Danger Zone */}

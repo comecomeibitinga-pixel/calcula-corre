@@ -8,11 +8,14 @@ import Link from "next/link";
 export default function GanhosPage() {
   const [ganhos, setGanhos] = useState<Ganho[]>([]);
   const [valor, setValor] = useState("");
-  const [categoria, setCategoria] = useState<Ganho["categoria"]>("iFood");
+  const [categoria, setCategoria] = useState<string>("iFood");
   const [descricao, setDescricao] = useState("");
   const [data, setData] = useState(new Date().toISOString().split("T")[0]);
   const [salvando, setSalvando] = useState(false);
   const [sucesso, setSucesso] = useState(false);
+  const [plataformas, setPlataformas] = useState<string[]>([]);
+  const [novaPlataforma, setNovaPlataforma] = useState("");
+  const [mostrarAddPlataforma, setMostrarAddPlataforma] = useState(false);
 
   const loadGanhos = async () => {
     try {
@@ -23,9 +26,35 @@ export default function GanhosPage() {
     }
   };
 
+  const loadPlataformas = () => {
+    const list = db.getPlataformas();
+    setPlataformas(list);
+  };
+
   useEffect(() => {
     loadGanhos();
+    loadPlataformas();
   }, []);
+
+  const handleAddPlataforma = () => {
+    const nome = novaPlataforma.trim();
+    if (!nome) return;
+    const updated = db.addPlataforma(nome);
+    setPlataformas(updated);
+    setCategoria(nome);
+    setNovaPlataforma("");
+    setMostrarAddPlataforma(false);
+  };
+
+  const handleDeletePlataforma = (nome: string) => {
+    if (confirm(`Excluir a plataforma "${nome}"?`)) {
+      const updated = db.deletePlataforma(nome);
+      setPlataformas(updated);
+      if (categoria === nome) {
+        setCategoria("iFood");
+      }
+    }
+  };
 
   const presets = [10, 15, 20, 30, 40, 50];
 
@@ -76,11 +105,19 @@ export default function GanhosPage() {
     .filter((g) => g.data === new Date().toISOString().split("T")[0])
     .reduce((sum, g) => sum + g.valor, 0);
 
-  const categoriasConfig = {
+  const categoriasConfig: Record<string, { color: string; active: string }> = {
     iFood: { color: "bg-red-500/10 text-red-500 border-red-500/25", active: "bg-red-600 text-white border-red-600 shadow-[0_0_8px_rgba(239,68,68,0.4)]" },
     Uber: { color: "bg-green-500/10 text-green-500 border-green-500/25", active: "bg-green-600 text-white border-green-600 shadow-[0_0_8px_rgba(34,197,94,0.4)]" },
     "Lanchonete Fixa": { color: "bg-amber-500/10 text-amber-500 border-amber-500/25", active: "bg-amber-500 text-slate-950 border-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.4)]" },
     Particular: { color: "bg-indigo-500/10 text-indigo-500 border-indigo-500/25", active: "bg-indigo-600 text-white border-indigo-600 shadow-[0_0_8px_rgba(79,70,229,0.4)]" },
+  };
+
+  const getCategoriaConfig = (cat: string) => {
+    if (categoriasConfig[cat]) return categoriasConfig[cat];
+    return {
+      color: "bg-violet-500/10 text-violet-400 border-violet-500/25",
+      active: "bg-violet-600 text-white border-violet-600 shadow-[0_0_8px_rgba(139,92,246,0.4)]",
+    };
   };
 
   return (
@@ -106,22 +143,68 @@ export default function GanhosPage() {
       <form onSubmit={handleSubmit} className="bg-card border border-border rounded-2xl p-5 shadow-lg space-y-5">
         
         {/* Category selector */}
-        <div className="space-y-2">
-          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">1. Aplicativo / Canal</label>
+        <div className="space-y-3">
+          <div className="flex justify-between items-center">
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">1. Aplicativo / Canal</label>
+            <button
+              type="button"
+              onClick={() => setMostrarAddPlataforma(!mostrarAddPlataforma)}
+              className="text-[10px] text-accent-success hover:underline font-bold"
+            >
+              {mostrarAddPlataforma ? "✓ Fechar" : "+ Novo App"}
+            </button>
+          </div>
+
+          {mostrarAddPlataforma && (
+            <div className="bg-slate-900/80 p-3 rounded-xl border border-border/80 flex gap-2 items-center animate-in fade-in slide-in-from-top-1 duration-150">
+              <input
+                type="text"
+                placeholder="Ex: Rappi, Loggi..."
+                value={novaPlataforma}
+                onChange={(e) => setNovaPlataforma(e.target.value)}
+                className="flex-1 bg-slate-950 border border-border rounded-lg py-1.5 px-3 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-accent-success"
+              />
+              <button
+                type="button"
+                onClick={handleAddPlataforma}
+                className="bg-accent-success text-slate-950 px-3 py-1.5 rounded-lg text-xs font-black uppercase active:scale-95 transition-all"
+              >
+                Add
+              </button>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-2">
-            {(Object.keys(categoriasConfig) as Array<keyof typeof categoriasConfig>).map((cat) => {
+            {plataformas.map((cat) => {
               const active = categoria === cat;
+              const config = getCategoriaConfig(cat);
+              const isDefault = ["iFood", "Uber", "Lanchonete Fixa", "Particular"].includes(cat);
+              
               return (
-                <button
-                  key={cat}
-                  type="button"
-                  onClick={() => setCategoria(cat)}
-                  className={`py-3 px-3 rounded-xl border text-xs font-bold text-center transition-all duration-150 active:scale-95 ${
-                    active ? categoriasConfig[cat].active : `${categoriasConfig[cat].color} bg-slate-900/40 hover:bg-slate-900`
-                  }`}
-                >
-                  {cat}
-                </button>
+                <div key={cat} className="relative group">
+                  <button
+                    type="button"
+                    onClick={() => setCategoria(cat)}
+                    className={`w-full py-3 px-3 rounded-xl border text-xs font-bold text-center transition-all duration-150 active:scale-95 ${
+                      active ? config.active : `${config.color} bg-slate-900/40 hover:bg-slate-900`
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                  {!isDefault && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeletePlataforma(cat);
+                      }}
+                      className="absolute -top-1.5 -right-1.5 bg-red-600 text-white rounded-full p-0.5 hover:bg-red-500 opacity-80 hover:opacity-100 transition-opacity duration-150 z-10"
+                      title="Excluir plataforma"
+                    >
+                      <Trash2 className="w-2.5 h-2.5" />
+                    </button>
+                  )}
+                </div>
               );
             })}
           </div>

@@ -166,6 +166,58 @@ export default function Dashboard() {
 
   const recentItems = formatRecentItems();
 
+  const getCategoriaConfig = (cat: string) => {
+    const config: Record<string, { color: string; active: string }> = {
+      iFood: { color: "bg-red-500/10 text-red-500 border-red-500/25", active: "bg-red-600 text-white border-red-600 shadow-[0_0_8px_rgba(239,68,68,0.4)]" },
+      Uber: { color: "bg-green-500/10 text-green-500 border-green-500/25", active: "bg-green-600 text-white border-green-600 shadow-[0_0_8px_rgba(34,197,94,0.4)]" },
+      "Lanchonete Fixa": { color: "bg-amber-500/10 text-amber-500 border-amber-500/25", active: "bg-amber-500 text-slate-950 border-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.4)]" },
+      Particular: { color: "bg-indigo-500/10 text-indigo-500 border-indigo-500/25", active: "bg-indigo-600 text-white border-indigo-600 shadow-[0_0_8px_rgba(79,70,229,0.4)]" },
+    };
+    if (config[cat]) return config[cat];
+    return {
+      color: "bg-violet-500/10 text-violet-400 border-violet-500/25",
+      active: "bg-violet-600 text-white border-violet-600 shadow-[0_0_8px_rgba(139,92,246,0.4)]"
+    };
+  };
+
+  const getConsistencyStats = () => {
+    let successDays = 0;
+    const metaVal = profile?.meta_diaria || 150;
+    for (let i = 0; i < 7; i++) {
+      const dayStr = getDaysAgoStr(i);
+      const dayGains = ganhos
+        .filter(g => g.data === dayStr)
+        .reduce((sum, g) => sum + g.valor, 0);
+      if (dayGains >= metaVal) {
+        successDays++;
+      }
+    }
+    return { successDays };
+  };
+
+  const getWeeklyBreakdown = () => {
+    const breakdown: Record<string, number> = {};
+    let totalWeeklyGains = 0;
+    
+    ganhos
+      .filter(g => g.data >= sevenDaysAgoStr)
+      .forEach(g => {
+        breakdown[g.categoria] = (breakdown[g.categoria] || 0) + g.valor;
+        totalWeeklyGains += g.valor;
+      });
+
+    return Object.entries(breakdown)
+      .map(([categoria, valor]) => ({
+        categoria,
+        valor,
+        pct: totalWeeklyGains > 0 ? (valor / totalWeeklyGains) * 100 : 0
+      }))
+      .sort((a, b) => b.valor - a.valor);
+  };
+
+  const consistency = getConsistencyStats();
+  const weeklyBreakdown = getWeeklyBreakdown();
+
   const metaDiaria = profile?.meta_diaria || 150;
   const metaProgresso = Math.min(100, (ganhosHoje / metaDiaria) * 100);
   const faltaMeta = Math.max(0, metaDiaria - ganhosHoje);
@@ -233,15 +285,22 @@ export default function Dashboard() {
           ></div>
         </div>
 
-        {faltaMeta > 0 ? (
-          <p className="text-[11px] text-slate-400 mt-3 flex items-center gap-1.5">
-            🚀 Faltam <strong className="text-accent-primary font-bold">R$ {faltaMeta.toFixed(2)}</strong> para bater a meta de hoje!
-          </p>
-        ) : (
-          <p className="text-[11px] text-accent-success mt-3 flex items-center gap-1.5 font-bold">
-            🎉 Meta batida hoje! O resto é lucro bruto! Daquele jeito! 🚀
-          </p>
-        )}
+        <div className="flex justify-between items-center mt-3 pt-2.5 border-t border-border/40 text-[11px] text-slate-400">
+          <div>
+            {faltaMeta > 0 ? (
+              <span className="flex items-center gap-1.5">
+                🚀 Faltam <strong className="text-accent-primary font-bold">R$ {faltaMeta.toFixed(2)}</strong> hoje
+              </span>
+            ) : (
+              <span className="text-accent-success font-bold flex items-center gap-1.5">
+                🎉 Meta batida hoje! 🚀
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-1 bg-slate-900/60 border border-border/50 px-2 py-0.5 rounded-lg text-[10px] font-extrabold text-amber-400 select-none">
+            <span>🔥 {consistency.successDays}/7 dias batidos</span>
+          </div>
+        </div>
       </section>
 
       {/* 2. Resumo da Semana (Cards) */}
@@ -285,6 +344,43 @@ export default function Dashboard() {
           </div>
         </div>
       </section>
+
+      {/* 2.5 Divisão por Aplicativo */}
+      {ganhosSemana > 0 && (
+        <section className="bg-card border border-border rounded-2xl p-4 shadow-md">
+          <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+            <Percent className="w-4 h-4 text-accent-primary" /> Faturamento por App (Últimos 7 dias)
+          </h3>
+          
+          <div className="space-y-3">
+            {weeklyBreakdown.map((item) => {
+              const isDefault = ["iFood", "Uber", "Lanchonete Fixa", "Particular"].includes(item.categoria);
+              return (
+                <div key={item.categoria} className="space-y-1">
+                  <div className="flex justify-between text-xs font-bold">
+                    <span className="text-slate-200">{item.categoria}</span>
+                    <span className="text-slate-400">
+                      R$ {item.valor.toFixed(2)} <span className="text-[10px] text-slate-500">({item.pct.toFixed(0)}%)</span>
+                    </span>
+                  </div>
+                  <div className="w-full bg-slate-900 rounded-full h-2 overflow-hidden border border-border/50">
+                    <div 
+                      className={`h-full rounded-full transition-all duration-500`}
+                      style={{ 
+                        width: `${item.pct}%`,
+                        backgroundColor: item.categoria === "iFood" ? "#ef4444" : 
+                                         item.categoria === "Uber" ? "#22c55e" :
+                                         item.categoria === "Lanchonete Fixa" ? "#f59e0b" :
+                                         item.categoria === "Particular" ? "#6366f1" : "#8b5cf6"
+                      }}
+                    ></div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {/* 3. Ações Rápidas (2 Cliques) */}
       <section className="grid grid-cols-2 gap-4">
@@ -400,9 +496,9 @@ export default function Dashboard() {
           <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
             <Layers className="w-4 h-4 text-accent-primary" /> Corre Recentes
           </h3>
-          {recentItems.length > 0 && (
-            <span className="text-[10px] text-slate-400">Últimos 4 registros</span>
-          )}
+          <Link href="/historico" className="text-[10px] text-accent-primary hover:underline font-bold transition-all">
+            Ver Tudo
+          </Link>
         </div>
 
         {recentItems.length === 0 ? (

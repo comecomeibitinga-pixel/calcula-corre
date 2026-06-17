@@ -13,7 +13,7 @@ export interface Ganho {
   id: string;
   user_id: string;
   valor: number;
-  categoria: "iFood" | "Uber" | "Lanchonete Fixa" | "Particular";
+  categoria: string;
   descricao?: string;
   data: string; // YYYY-MM-DD
   created_at?: string;
@@ -369,6 +369,33 @@ export const db = {
       const filtered = list.filter((item) => item.id !== id);
       setLocalData("calculacorre_despesas", filtered);
     }
+  },
+
+  // --- CUSTOM PLATFORMS ---
+  getPlataformas(): string[] {
+    const defaultPlataformas = ["iFood", "Uber", "Lanchonete Fixa", "Particular"];
+    return getLocalData("calculacorre_plataformas", defaultPlataformas);
+  },
+
+  addPlataforma(nome: string): string[] {
+    const list = this.getPlataformas();
+    const nomeTrimmed = nome.trim();
+    if (nomeTrimmed && !list.includes(nomeTrimmed)) {
+      const updated = [...list, nomeTrimmed];
+      setLocalData("calculacorre_plataformas", updated);
+      return updated;
+    }
+    return list;
+  },
+
+  deletePlataforma(nome: string): string[] {
+    const defaultPlataformas = ["iFood", "Uber", "Lanchonete Fixa", "Particular"];
+    if (defaultPlataformas.includes(nome)) return this.getPlataformas();
+    
+    const list = this.getPlataformas();
+    const updated = list.filter(p => p !== nome);
+    setLocalData("calculacorre_plataformas", updated);
+    return updated;
   },
 };
 
